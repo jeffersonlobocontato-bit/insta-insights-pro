@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Download, Copy } from "lucide-react";
+import { Loader2, ArrowLeft, Download, Copy, Linkedin } from "lucide-react";
 import { toast } from "sonner";
 
 type ApprovedCreative = {
@@ -24,6 +24,7 @@ const Library = () => {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ApprovedCreative[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +75,26 @@ const Library = () => {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  const publishLinkedIn = async (item: ApprovedCreative) => {
+    setPublishing(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("linkedin-publish", {
+        body: { creative_id: item.id },
+      });
+      if (error) throw error;
+      toast.success(
+        (data as { with_image?: boolean })?.with_image
+          ? "Publicado no LinkedIn com a imagem"
+          : "Publicado no LinkedIn (somente texto)",
+      );
+    } catch (err) {
+      toast.error(`Não consegui publicar: ${(err as Error).message}`);
+    } finally {
+      setPublishing(null);
+    }
+  };
+
 
   const copyCaption = async (item: ApprovedCreative) => {
     const tags = (item.hashtags ?? []).map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
@@ -155,9 +176,24 @@ const Library = () => {
                     </p>
                   )}
 
-                  <Button size="sm" variant="ghost" onClick={() => copyCaption(item)}>
-                    <Copy className="w-3.5 h-3.5 mr-1" /> Copiar legenda
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => copyCaption(item)}>
+                      <Copy className="w-3.5 h-3.5 mr-1" /> Copiar legenda
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={publishing === item.id}
+                      onClick={() => publishLinkedIn(item)}
+                    >
+                      {publishing === item.id ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Linkedin className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Publicar no LinkedIn
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
