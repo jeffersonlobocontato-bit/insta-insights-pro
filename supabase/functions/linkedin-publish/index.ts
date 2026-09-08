@@ -248,7 +248,14 @@ Deno.serve(async (req) => {
     }
 
 
-    return json({ ok: true, post_id: postId, with_image: withImage, image_error: withImage ? null : imageError })
+    return json({
+      ok: true,
+      post_id: postId,
+      with_image: withImage,
+      image_count: imageCount,
+      image_error: withImage ? null : imageError,
+    })
+
   } catch (e) {
     const status = (e as { status?: number }).status
     console.error('linkedin-publish erro:', (e as Error).message)
