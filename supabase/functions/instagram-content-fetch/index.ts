@@ -12,8 +12,12 @@ type Slide = {
   order: number
   headline: string
   body: string
+  kicker?: string
+  emphasis?: string
   image_prompt: string
   image_url?: string
+  source_name?: string
+  source_link?: string
 }
 
 type CreativeDraft = {
@@ -23,12 +27,42 @@ type CreativeDraft = {
   slides: Slide[]
 }
 
+type Headline = {
+  source: string
+  title: string
+  summary: string
+  link?: string
+  image?: string
+}
+
 function stripTags(s: string) {
   return s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim()
 }
 
+function decodeEntities(s: string) {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+/** Imagem pública divulgada no próprio item da notícia. */
+function extractItemImage(block: string): string | undefined {
+  const candidates = [
+    block.match(/<media:content[^>]+url=["']([^"']+)["']/i)?.[1],
+    block.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1],
+    block.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]*type=["']image\//i)?.[1],
+    block.match(/<enclosure[^>]+type=["']image\/[^"']*["'][^>]*url=["']([^"']+)["']/i)?.[1],
+    block.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1],
+  ].filter(Boolean) as string[]
+  const url = candidates.find((u) => /^https?:\/\//i.test(u))
+  return url ? decodeEntities(url) : undefined
+}
+
 function parseFeed(xml: string, limit = 8) {
-  const items: { title: string; summary: string }[] = []
+  const items: { title: string; summary: string; link?: string; image?: string }[] = []
   const blocks = xml.split(/<item[\s>]|<entry[\s>]/).slice(1)
   for (const block of blocks.slice(0, limit)) {
     const title = block.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]
@@ -36,9 +70,60 @@ function parseFeed(xml: string, limit = 8) {
       block.match(/<description[^>]*>([\s\S]*?)<\/description>/)?.[1] ??
       block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1] ??
       ''
-    if (title) items.push({ title: stripTags(title), summary: stripTags(desc).slice(0, 300) })
+    const link =
+      block.match(/<link[^>]*>([\s\S]*?)<\/link>/)?.[1]?.trim() ??
+      block.match(/<link[^>]+href=["']([^"']+)["']/i)?.[1]
+    if (title) {
+      items.push({
+        title: stripTags(title),
+        summary: stripTags(desc).slice(0, 300),
+        link: link ? decodeEntities(stripTags(link)) : undefined,
+        image: extractItemImage(block) ?? extractItemImage(desc),
+      })
+    }
   }
   return items
+}
+
+/** Fallback: og:image da página da notícia. */
+async function fetchOgImage(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!res.ok) return undefined
+    const html = (await res.text()).slice(0, 200000)
+    const og =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] ??
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1] ??
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+    return og && /^https?:\/\//i.test(og) ? decodeEntities(og) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Baixa a imagem pública da notícia e regrava no bucket (evita hotlink/CORS). */
+async function mirrorImage(url: string, path: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
+      signal: AbortSignal.timeout(20000),
+    })
+    if (!res.ok) return null
+    const type = res.headers.get('content-type') ?? 'image/jpeg'
+    if (!type.startsWith('image/')) return null
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    if (bytes.byteLength < 5000 || bytes.byteLength > 9_000_000) return null
+    const { error } = await admin.storage
+      .from('instagram-creatives')
+      .upload(path, bytes, { contentType: type, upsert: true })
+    if (error) return null
+    return path
+  } catch {
+    return null
+  }
 }
 
 async function chat(messages: unknown[], schemaName: string, schema: unknown) {
@@ -131,7 +216,7 @@ Deno.serve(async (req) => {
       .eq('active', true)
       .limit(8)
 
-    const headlines: { source: string; title: string; summary: string }[] = []
+    const headlines: Headline[] = []
     for (const s of sources ?? []) {
       try {
         const res = await fetch(s.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' } })
@@ -163,7 +248,7 @@ Deno.serve(async (req) => {
           role: 'user',
           content:
             'Com base nestas manchetes de hoje, escolha O tema mais comentado e relevante para um público de marketing e IA no Instagram.\n\n' +
-            headlines.map((h) => `- [${h.source}] ${h.title}: ${h.summary}`).join('\n'),
+            headlines.map((h, i) => `${i}. [${h.source}] ${h.title}: ${h.summary}`).join('\n'),
         },
       ],
       'escolher_tema',
@@ -173,6 +258,11 @@ Deno.serve(async (req) => {
           topic_title: { type: 'string' },
           topic_summary: { type: 'string' },
           sources: { type: 'array', items: { type: 'string' } },
+          headline_indexes: {
+            type: 'array',
+            items: { type: 'number' },
+            description: 'Índices das manchetes usadas, em ordem de relevância',
+          },
         },
         required: ['topic_title', 'topic_summary', 'sources'],
       },
@@ -188,16 +278,35 @@ Deno.serve(async (req) => {
       })
       .eq('id', runId)
 
-    // 2. Geração dos criativos
+    // 1b. Imagens públicas divulgadas nas notícias escolhidas
+    const chosen: Headline[] = (topic.headline_indexes ?? [])
+      .map((i: number) => headlines[i])
+      .filter(Boolean)
+    const pool: Headline[] = chosen.length > 0 ? chosen : headlines
+    const newsImages: { path: string; source_name: string; source_link?: string }[] = []
+    for (const item of pool.slice(0, 8)) {
+      if (newsImages.length >= 4) break
+      const src = item.image ?? (item.link ? await fetchOgImage(item.link) : undefined)
+      if (!src) continue
+      const path = await mirrorImage(src, `${runId}/news-${crypto.randomUUID()}.img`)
+      if (path) newsImages.push({ path, source_name: item.source, source_link: item.link })
+    }
+
+    // 2. Geração dos criativos, dentro da identidade da marca
     const slideSchema = {
       type: 'object',
       properties: {
         order: { type: 'number' },
-        headline: { type: 'string' },
-        body: { type: 'string' },
+        kicker: { type: 'string', description: 'Rótulo curto em caixa alta, até 4 palavras' },
+        headline: { type: 'string', description: 'Título curto, até 9 palavras' },
+        emphasis: {
+          type: 'string',
+          description: 'Trecho exato do headline que receberá o itálico âmbar da marca (1 a 3 palavras)',
+        },
+        body: { type: 'string', description: 'Texto de apoio, até 240 caracteres' },
         image_prompt: { type: 'string' },
       },
-      required: ['order', 'headline', 'body', 'image_prompt'],
+      required: ['order', 'kicker', 'headline', 'emphasis', 'body', 'image_prompt'],
     }
 
     const drafts = (await chat(
@@ -205,7 +314,10 @@ Deno.serve(async (req) => {
         {
           role: 'system',
           content:
-            'Você cria conteúdo de Instagram em português do Brasil, tom direto e profissional. image_prompt deve ser escrito em inglês, descrevendo uma imagem de fundo abstrata e moderna, SEM nenhum texto na imagem.',
+            'Você cria conteúdo de Instagram para a marca pessoal de Jefferson Lobo — head executivo de marketing, consultor em IA e palestrante. ' +
+            'Tom direto, autoral e profissional, em português do Brasil, sem emojis nos títulos. ' +
+            'A identidade visual é fundo petróleo (#12201E), texto papel (#F2EEE4) e destaque âmbar (#E29F65), com títulos em serifa e rótulos em monoespaçada caixa alta. ' +
+            'image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.',
         },
         {
           role: 'user',
@@ -234,15 +346,24 @@ Deno.serve(async (req) => {
       },
     )) as { creatives: CreativeDraft[] }
 
-    // 3. Imagens de fundo (limite de segurança de 6 imagens por rodada)
+    // 3. Fundo de cada slide: primeiro a imagem pública da notícia, senão fundo por IA
     let imageBudget = 6
+    let newsCursor = 0
     for (const creative of drafts.creatives) {
       for (const slide of creative.slides) {
-        if (imageBudget <= 0) break
+        const news = newsImages[newsCursor % Math.max(newsImages.length, 1)]
+        if (news) {
+          slide.image_url = news.path
+          slide.source_name = news.source_name
+          slide.source_link = news.source_link
+          newsCursor++
+          continue
+        }
+        if (imageBudget <= 0) continue
         imageBudget--
         try {
           const b64 = await generateImage(
-            `${slide.image_prompt}. Modern abstract social media background, vibrant purple to pink gradient, high contrast, no text, no letters, no watermark.`,
+            `${slide.image_prompt}. Abstract editorial background for social media, deep petrol green (#12201E) base with warm amber (#E29F65) light accents, soft grain, high contrast, no text, no letters, no watermark.`,
           )
           if (b64) {
             slide.image_url = await uploadImage(
@@ -269,7 +390,7 @@ Deno.serve(async (req) => {
 
     await admin.from('instagram_runs').update({ status: 'pending_review' }).eq('id', runId)
 
-    return new Response(JSON.stringify({ run_id: runId, topic: topic.topic_title }), {
+    return new Response(JSON.stringify({ run_id: runId, topic: topic.topic_title, news_images: newsImages.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {

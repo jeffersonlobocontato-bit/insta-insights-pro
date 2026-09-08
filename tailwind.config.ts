@@ -47,15 +47,30 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          petrol: "hsl(var(--brand-petrol))",
+          surface: "hsl(var(--brand-surface))",
+          surface2: "hsl(var(--brand-surface-2))",
+          amber: "hsl(var(--brand-amber))",
+          amberDark: "hsl(var(--brand-amber-dark))",
+          paper: "hsl(var(--brand-paper))",
+        },
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-card': 'var(--gradient-card)',
         'gradient-overlay': 'var(--gradient-overlay)',
+        'gradient-rule': 'var(--gradient-rule)',
+      },
+      fontFamily: {
+        serif: ['"Instrument Serif"', 'serif'],
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'monospace'],
       },
       boxShadow: {
         'glow': 'var(--shadow-glow)',
         'card': 'var(--shadow-card)',
+        'soft': 'var(--shadow-soft)',
       },
       transitionProperty: {
         'smooth': 'var(--transition-smooth)',
