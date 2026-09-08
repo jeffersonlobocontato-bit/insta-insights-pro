@@ -47,6 +47,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          petrol: "hsl(var(--brand-petrol))",
+          surface: "hsl(var(--brand-surface))",
+          surface2: "hsl(var(--brand-surface-2))",
+          amber: "hsl(var(--brand-amber))",
+          amberDark: "hsl(var(--brand-amber-dark))",
+          paper: "hsl(var(--brand-paper))",
+        },
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
