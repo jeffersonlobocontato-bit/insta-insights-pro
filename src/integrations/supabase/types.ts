@@ -14,16 +14,185 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      instagram_creatives: {
+        Row: {
+          caption: string | null
+          created_at: string
+          final_image_urls: string[]
+          format: string
+          hashtags: string[]
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          run_id: string
+          slides: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          final_image_urls?: string[]
+          format: string
+          hashtags?: string[]
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_id: string
+          slides?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          final_image_urls?: string[]
+          format?: string
+          hashtags?: string[]
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          run_id?: string
+          slides?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_creatives_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instagram_runs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          run_date: string
+          status: string
+          topic_sources: Json
+          topic_summary: string | null
+          topic_title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          run_date?: string
+          status?: string
+          topic_sources?: Json
+          topic_summary?: string | null
+          topic_title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          run_date?: string
+          status?: string
+          topic_sources?: Json
+          topic_summary?: string | null
+          topic_title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      instagram_trend_sources: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          last_fetch_at: string | null
+          last_fetch_status: string | null
+          name: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_fetch_at?: string | null
+          last_fetch_status?: string | null
+          name: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_fetch_at?: string | null
+          last_fetch_status?: string | null
+          name?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +319,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
