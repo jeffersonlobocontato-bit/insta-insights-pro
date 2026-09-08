@@ -83,17 +83,24 @@ const Library = () => {
         body: { creative_id: item.id },
       });
       if (error) throw error;
-      toast.success(
-        (data as { with_image?: boolean })?.with_image
-          ? "Publicado no LinkedIn com a imagem"
-          : "Publicado no LinkedIn (somente texto)",
-      );
+      const result = data as { with_image?: boolean; image_error?: string | null };
+      if (result?.with_image) {
+        toast.success("Publicado no LinkedIn com a imagem");
+      } else {
+        toast.warning(
+          result?.image_error
+            ? `Publicado só o texto. A imagem falhou: ${result.image_error}`
+            : "Publicado no LinkedIn (somente texto)",
+          { duration: 12000 },
+        );
+      }
     } catch (err) {
       toast.error(`Não consegui publicar: ${(err as Error).message}`);
     } finally {
       setPublishing(null);
     }
   };
+
 
 
   const copyCaption = async (item: ApprovedCreative) => {
