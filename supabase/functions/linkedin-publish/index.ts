@@ -28,30 +28,66 @@ async function gateway(path: string, init: RequestInit = {}) {
   return res
 }
 
-// Envia o binário para a URL temporária devolvida pelo LinkedIn, preservando caminho + query
+// A URL de upload do LinkedIn é pré-assinada e vive em outro host (dms-uploads).
+// Precisa ir direto, não pelo gateway (o gateway aponta para api.linkedin.com → 405).
 async function putBinary(uploadUrl: string, bytes: Uint8Array) {
-  const u = new URL(uploadUrl)
-  return gateway(`${u.pathname}${u.search}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/png' },
-    body: bytes,
-  })
+  const attempts: Array<{ label: string; run: () => Promise<Response> }> = [
+    {
+      label: 'direto',
+      run: () => fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: bytes }),
+    },
+    {
+      label: 'direto POST',
+      run: () => fetch(uploadUrl, { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: bytes }),
+    },
+  ]
+  let last = ''
+  for (const a of attempts) {
+    try {
+      const res = await a.run()
+      if (res.ok || res.status === 201) return res
+      last = `upload ${a.label} [${res.status}]: ${(await res.text()).slice(0, 300)}`
+      console.error(last)
+    } catch (e) {
+      last = `upload ${a.label} falhou: ${(e as Error).message}`
+      console.error(last)
+    }
+  }
+  throw new Error(last || 'Falha no upload da imagem para o LinkedIn')
 }
 
 /** Fluxo atual: /rest/images + /rest/posts. Retorna o id do post. */
 async function publishWithImagesApi(author: string, text: string, bytes: Uint8Array) {
+  let init: any = null
+  let version = ''
+  let lastErr: unknown = null
+  for (const v of LI_VERSIONS) {
+    try {
+      init = await (
+        await gateway('/rest/images?action=initializeUpload', {
+          method: 'POST',
+          headers: {
+            'LinkedIn-Version': v,
+            'X-Restli-Protocol-Version': '2.0.0',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
+        })
+      ).json()
+      version = v
+      break
+    } catch (e) {
+      lastErr = e
+      if ((e as { status?: number }).status !== 426) throw e
+    }
+  }
+  if (!init) throw lastErr ?? new Error('Nenhuma versão da API do LinkedIn aceita')
+
   const restHeaders = {
-    'LinkedIn-Version': LI_VERSION,
+    'LinkedIn-Version': version,
     'X-Restli-Protocol-Version': '2.0.0',
     'Content-Type': 'application/json',
   }
-  const init = await (
-    await gateway('/rest/images?action=initializeUpload', {
-      method: 'POST',
-      headers: restHeaders,
-      body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
-    })
-  ).json()
   const imageUrn = init?.value?.image as string | undefined
   const uploadUrl = init?.value?.uploadUrl as string | undefined
   if (!imageUrn || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem')
