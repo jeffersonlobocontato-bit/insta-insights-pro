@@ -8,6 +8,13 @@
       "when": 1788881978109,
       "tag": "0000_instagram_content_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788881996890,
+      "tag": "0001_instagram_creatives_storage_policies",
+      "breakpoints": true
     }
   ]
 }
