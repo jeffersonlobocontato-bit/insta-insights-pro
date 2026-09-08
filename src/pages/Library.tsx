@@ -176,9 +176,24 @@ const Library = () => {
                     </p>
                   )}
 
-                  <Button size="sm" variant="ghost" onClick={() => copyCaption(item)}>
-                    <Copy className="w-3.5 h-3.5 mr-1" /> Copiar legenda
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => copyCaption(item)}>
+                      <Copy className="w-3.5 h-3.5 mr-1" /> Copiar legenda
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={publishing === item.id}
+                      onClick={() => publishLinkedIn(item)}
+                    >
+                      {publishing === item.id ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Linkedin className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Publicar no LinkedIn
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
