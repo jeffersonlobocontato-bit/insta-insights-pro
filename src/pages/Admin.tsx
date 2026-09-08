@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, LogOut, Sparkles, Plus } from "lucide-react";
+import { Loader2, LogOut, Sparkles, Plus, Images } from "lucide-react";
 import { CreativeReviewCard, type Creative } from "@/components/CreativeReviewCard";
 
 type Run = {
@@ -149,6 +149,11 @@ const Admin = () => {
             <p className="text-xs text-muted-foreground">Nada é publicado sem sua aprovação</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/biblioteca">
+                <Images className="w-4 h-4 mr-2" /> Biblioteca
+              </Link>
+            </Button>
             <Button onClick={generate} disabled={generating} className="bg-gradient-primary">
               {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Gerar do dia
