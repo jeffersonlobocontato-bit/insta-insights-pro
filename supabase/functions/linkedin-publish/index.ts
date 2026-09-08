@@ -205,32 +205,36 @@ Deno.serve(async (req) => {
     const me = await (await gateway('/v2/userinfo')).json()
     const author = `urn:li:person:${me.sub}`
 
-    // Baixa a arte final aprovada
-    let bytes: Uint8Array | null = null
+    // Baixa todas as artes finais aprovadas (carrossel = várias)
+    const images: Uint8Array[] = []
     let imageError: string | null = null
-    const path = (creative.final_image_urls ?? [])[0]
-    if (path) {
-      const { data: file, error: dErr } = await admin.storage.from('instagram-creatives').download(path)
-      if (file) bytes = new Uint8Array(await file.arrayBuffer())
-      else imageError = `Não consegui baixar a arte final (${dErr?.message ?? 'arquivo ausente'})`
-    } else {
+    const paths = (creative.final_image_urls ?? []).slice(0, 20)
+    if (paths.length === 0) {
       imageError = 'Esta peça não tem arte final montada'
+    }
+    for (const path of paths) {
+      const { data: file, error: dErr } = await admin.storage.from('instagram-creatives').download(path)
+      if (file) images.push(new Uint8Array(await file.arrayBuffer()))
+      else imageError = `Não consegui baixar a arte final (${dErr?.message ?? 'arquivo ausente'})`
     }
 
     let postId: string | null = null
     let withImage = false
+    let imageCount = 0
 
-    if (bytes) {
+    if (images.length > 0) {
       try {
-        postId = await publishWithImagesApi(author, text, bytes)
+        postId = await publishWithImagesApi(author, text, images)
         withImage = true
+        imageCount = images.length
       } catch (e) {
         const status = (e as { status?: number }).status
         const msg = (e as Error).message
         console.error('Fluxo /rest falhou:', msg, status ?? '')
         try {
-          postId = await publishWithUgcApi(author, text, bytes)
+          postId = await publishWithUgcApi(author, text, images)
           withImage = true
+          imageCount = images.length
         } catch (e2) {
           imageError = `${msg} | v2: ${(e2 as Error).message}`
           console.error('Fluxo /v2 também falhou:', imageError)
@@ -240,8 +244,9 @@ Deno.serve(async (req) => {
 
     if (!postId) {
       // Publica somente o texto e devolve o motivo da falha da imagem
-      postId = await publishWithUgcApi(author, text, null)
+      postId = await publishWithUgcApi(author, text, [])
     }
+
 
     return json({ ok: true, post_id: postId, with_image: withImage, image_error: withImage ? null : imageError })
   } catch (e) {
