@@ -6,7 +6,7 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!
 const LINKEDIN_API_KEY = Deno.env.get('LINKEDIN_API_KEY')!
 const GATEWAY = 'https://connector-gateway.lovable.dev/linkedin'
-const LI_VERSION = '202409'
+const LI_VERSIONS = ['202508', '202506', '202504', '202501', '202411']
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY)
 
