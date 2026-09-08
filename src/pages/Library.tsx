@@ -24,6 +24,7 @@ const Library = () => {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ApprovedCreative[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -74,6 +75,26 @@ const Library = () => {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  const publishLinkedIn = async (item: ApprovedCreative) => {
+    setPublishing(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("linkedin-publish", {
+        body: { creative_id: item.id },
+      });
+      if (error) throw error;
+      toast.success(
+        (data as { with_image?: boolean })?.with_image
+          ? "Publicado no LinkedIn com a imagem"
+          : "Publicado no LinkedIn (somente texto)",
+      );
+    } catch (err) {
+      toast.error(`Não consegui publicar: ${(err as Error).message}`);
+    } finally {
+      setPublishing(null);
+    }
+  };
+
 
   const copyCaption = async (item: ApprovedCreative) => {
     const tags = (item.hashtags ?? []).map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
