@@ -56,43 +56,53 @@ async function putBinary(uploadUrl: string, bytes: Uint8Array) {
   throw new Error(last || 'Falha no upload da imagem para o LinkedIn')
 }
 
-/** Fluxo atual: /rest/images + /rest/posts. Retorna o id do post. */
-async function publishWithImagesApi(author: string, text: string, bytes: Uint8Array) {
-  let init: any = null
+/** Fluxo atual: /rest/images + /rest/posts. Suporta 1 imagem ou carrossel (multiImage). */
+async function publishWithImagesApi(author: string, text: string, images: Uint8Array[]) {
   let version = ''
-  let lastErr: unknown = null
-  for (const v of LI_VERSIONS) {
-    try {
-      init = await (
-        await gateway('/rest/images?action=initializeUpload', {
-          method: 'POST',
-          headers: {
-            'LinkedIn-Version': v,
-            'X-Restli-Protocol-Version': '2.0.0',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
-        })
-      ).json()
-      version = v
-      break
-    } catch (e) {
-      lastErr = e
-      if ((e as { status?: number }).status !== 426) throw e
+  const urns: string[] = []
+
+  for (const bytes of images) {
+    let init: any = null
+    let lastErr: unknown = null
+    for (const v of version ? [version] : LI_VERSIONS) {
+      try {
+        init = await (
+          await gateway('/rest/images?action=initializeUpload', {
+            method: 'POST',
+            headers: {
+              'LinkedIn-Version': v,
+              'X-Restli-Protocol-Version': '2.0.0',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
+          })
+        ).json()
+        version = v
+        break
+      } catch (e) {
+        lastErr = e
+        if ((e as { status?: number }).status !== 426) throw e
+      }
     }
+    if (!init) throw lastErr ?? new Error('Nenhuma versão da API do LinkedIn aceita')
+
+    const imageUrn = init?.value?.image as string | undefined
+    const uploadUrl = init?.value?.uploadUrl as string | undefined
+    if (!imageUrn || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem')
+    await putBinary(uploadUrl, bytes)
+    urns.push(imageUrn)
   }
-  if (!init) throw lastErr ?? new Error('Nenhuma versão da API do LinkedIn aceita')
 
   const restHeaders = {
     'LinkedIn-Version': version,
     'X-Restli-Protocol-Version': '2.0.0',
     'Content-Type': 'application/json',
   }
-  const imageUrn = init?.value?.image as string | undefined
-  const uploadUrl = init?.value?.uploadUrl as string | undefined
-  if (!imageUrn || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem')
 
-  await putBinary(uploadUrl, bytes)
+  const content =
+    urns.length > 1
+      ? { multiImage: { images: urns.map((id) => ({ id })) } }
+      : { media: { id: urns[0], title: 'Jefferson Lobo' } }
 
   const res = await gateway('/rest/posts', {
     method: 'POST',
@@ -102,7 +112,7 @@ async function publishWithImagesApi(author: string, text: string, bytes: Uint8Ar
       commentary: text,
       visibility: 'PUBLIC',
       distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
-      content: { media: { id: imageUrn, title: 'Jefferson Lobo' } },
+      content,
       lifecycleState: 'PUBLISHED',
       isReshareDisabledByAuthor: false,
     }),
@@ -110,6 +120,7 @@ async function publishWithImagesApi(author: string, text: string, bytes: Uint8Ar
   const postId = res.headers.get('x-restli-id') ?? res.headers.get('x-linkedin-id')
   return postId
 }
+
 
 /** Fluxo antigo: /v2/assets + /v2/ugcPosts. */
 async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array | null) {
