@@ -83,9 +83,10 @@ const Library = () => {
         body: { creative_id: item.id },
       });
       if (error) throw error;
-      const result = data as { with_image?: boolean; image_error?: string | null };
+      const result = data as { with_image?: boolean; image_count?: number; image_error?: string | null };
       if (result?.with_image) {
-        toast.success("Publicado no LinkedIn com a imagem");
+        const n = result.image_count ?? 1;
+        toast.success(n > 1 ? `Publicado no LinkedIn com ${n} imagens` : "Publicado no LinkedIn com a imagem");
       } else {
         toast.warning(
           result?.image_error

@@ -56,43 +56,53 @@ async function putBinary(uploadUrl: string, bytes: Uint8Array) {
   throw new Error(last || 'Falha no upload da imagem para o LinkedIn')
 }
 
-/** Fluxo atual: /rest/images + /rest/posts. Retorna o id do post. */
-async function publishWithImagesApi(author: string, text: string, bytes: Uint8Array) {
-  let init: any = null
+/** Fluxo atual: /rest/images + /rest/posts. Suporta 1 imagem ou carrossel (multiImage). */
+async function publishWithImagesApi(author: string, text: string, images: Uint8Array[]) {
   let version = ''
-  let lastErr: unknown = null
-  for (const v of LI_VERSIONS) {
-    try {
-      init = await (
-        await gateway('/rest/images?action=initializeUpload', {
-          method: 'POST',
-          headers: {
-            'LinkedIn-Version': v,
-            'X-Restli-Protocol-Version': '2.0.0',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
-        })
-      ).json()
-      version = v
-      break
-    } catch (e) {
-      lastErr = e
-      if ((e as { status?: number }).status !== 426) throw e
+  const urns: string[] = []
+
+  for (const bytes of images) {
+    let init: any = null
+    let lastErr: unknown = null
+    for (const v of version ? [version] : LI_VERSIONS) {
+      try {
+        init = await (
+          await gateway('/rest/images?action=initializeUpload', {
+            method: 'POST',
+            headers: {
+              'LinkedIn-Version': v,
+              'X-Restli-Protocol-Version': '2.0.0',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
+          })
+        ).json()
+        version = v
+        break
+      } catch (e) {
+        lastErr = e
+        if ((e as { status?: number }).status !== 426) throw e
+      }
     }
+    if (!init) throw lastErr ?? new Error('Nenhuma versão da API do LinkedIn aceita')
+
+    const imageUrn = init?.value?.image as string | undefined
+    const uploadUrl = init?.value?.uploadUrl as string | undefined
+    if (!imageUrn || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem')
+    await putBinary(uploadUrl, bytes)
+    urns.push(imageUrn)
   }
-  if (!init) throw lastErr ?? new Error('Nenhuma versão da API do LinkedIn aceita')
 
   const restHeaders = {
     'LinkedIn-Version': version,
     'X-Restli-Protocol-Version': '2.0.0',
     'Content-Type': 'application/json',
   }
-  const imageUrn = init?.value?.image as string | undefined
-  const uploadUrl = init?.value?.uploadUrl as string | undefined
-  if (!imageUrn || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem')
 
-  await putBinary(uploadUrl, bytes)
+  const content =
+    urns.length > 1
+      ? { multiImage: { images: urns.map((id) => ({ id })) } }
+      : { media: { id: urns[0], title: 'Jefferson Lobo' } }
 
   const res = await gateway('/rest/posts', {
     method: 'POST',
@@ -102,7 +112,7 @@ async function publishWithImagesApi(author: string, text: string, bytes: Uint8Ar
       commentary: text,
       visibility: 'PUBLIC',
       distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
-      content: { media: { id: imageUrn, title: 'Jefferson Lobo' } },
+      content,
       lifecycleState: 'PUBLISHED',
       isReshareDisabledByAuthor: false,
     }),
@@ -111,10 +121,11 @@ async function publishWithImagesApi(author: string, text: string, bytes: Uint8Ar
   return postId
 }
 
+
 /** Fluxo antigo: /v2/assets + /v2/ugcPosts. */
-async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array | null) {
-  let mediaAsset: string | null = null
-  if (bytes) {
+async function publishWithUgcApi(author: string, text: string, images: Uint8Array[]) {
+  const assets: string[] = []
+  for (const bytes of images) {
     const reg = await (
       await gateway('/v2/assets?action=registerUpload', {
         method: 'POST',
@@ -134,7 +145,7 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
     ]?.uploadUrl as string | undefined
     if (!asset || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem (v2/assets)')
     await putBinary(uploadUrl, bytes)
-    mediaAsset = asset
+    assets.push(asset)
   }
 
   const post = await (
@@ -147,8 +158,8 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
         specificContent: {
           'com.linkedin.ugc.ShareContent': {
             shareCommentary: { text },
-            shareMediaCategory: mediaAsset ? 'IMAGE' : 'NONE',
-            ...(mediaAsset ? { media: [{ status: 'READY', media: mediaAsset }] } : {}),
+            shareMediaCategory: assets.length ? 'IMAGE' : 'NONE',
+            ...(assets.length ? { media: assets.map((a) => ({ status: 'READY', media: a })) } : {}),
           },
         },
         visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
@@ -157,6 +168,7 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
   ).json()
   return post?.id ?? null
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -193,32 +205,36 @@ Deno.serve(async (req) => {
     const me = await (await gateway('/v2/userinfo')).json()
     const author = `urn:li:person:${me.sub}`
 
-    // Baixa a arte final aprovada
-    let bytes: Uint8Array | null = null
+    // Baixa todas as artes finais aprovadas (carrossel = várias)
+    const images: Uint8Array[] = []
     let imageError: string | null = null
-    const path = (creative.final_image_urls ?? [])[0]
-    if (path) {
-      const { data: file, error: dErr } = await admin.storage.from('instagram-creatives').download(path)
-      if (file) bytes = new Uint8Array(await file.arrayBuffer())
-      else imageError = `Não consegui baixar a arte final (${dErr?.message ?? 'arquivo ausente'})`
-    } else {
+    const paths = (creative.final_image_urls ?? []).slice(0, 20)
+    if (paths.length === 0) {
       imageError = 'Esta peça não tem arte final montada'
+    }
+    for (const path of paths) {
+      const { data: file, error: dErr } = await admin.storage.from('instagram-creatives').download(path)
+      if (file) images.push(new Uint8Array(await file.arrayBuffer()))
+      else imageError = `Não consegui baixar a arte final (${dErr?.message ?? 'arquivo ausente'})`
     }
 
     let postId: string | null = null
     let withImage = false
+    let imageCount = 0
 
-    if (bytes) {
+    if (images.length > 0) {
       try {
-        postId = await publishWithImagesApi(author, text, bytes)
+        postId = await publishWithImagesApi(author, text, images)
         withImage = true
+        imageCount = images.length
       } catch (e) {
         const status = (e as { status?: number }).status
         const msg = (e as Error).message
         console.error('Fluxo /rest falhou:', msg, status ?? '')
         try {
-          postId = await publishWithUgcApi(author, text, bytes)
+          postId = await publishWithUgcApi(author, text, images)
           withImage = true
+          imageCount = images.length
         } catch (e2) {
           imageError = `${msg} | v2: ${(e2 as Error).message}`
           console.error('Fluxo /v2 também falhou:', imageError)
@@ -228,10 +244,18 @@ Deno.serve(async (req) => {
 
     if (!postId) {
       // Publica somente o texto e devolve o motivo da falha da imagem
-      postId = await publishWithUgcApi(author, text, null)
+      postId = await publishWithUgcApi(author, text, [])
     }
 
-    return json({ ok: true, post_id: postId, with_image: withImage, image_error: withImage ? null : imageError })
+
+    return json({
+      ok: true,
+      post_id: postId,
+      with_image: withImage,
+      image_count: imageCount,
+      image_error: withImage ? null : imageError,
+    })
+
   } catch (e) {
     const status = (e as { status?: number }).status
     console.error('linkedin-publish erro:', (e as Error).message)
