@@ -4,7 +4,8 @@ import { ProfileCard } from "@/components/ProfileCard";
 import { StatsOverview } from "@/components/StatsOverview";
 import { AnalysisSection } from "@/components/AnalysisSection";
 import { Button } from "@/components/ui/button";
-import { Instagram, Plus, TrendingUp } from "lucide-react";
+import { Instagram, Plus, TrendingUp, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Index = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -41,12 +42,20 @@ const Index = () => {
                 <p className="text-sm text-muted-foreground">Análise de Conteúdo Instagram</p>
               </div>
             </div>
-            <AddProfileDialog onAdd={handleAddProfile}>
-              <Button className="bg-gradient-primary hover:opacity-90 transition-opacity">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Perfil
+            <div className="flex items-center gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/admin">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Criativos IA
+                </Link>
               </Button>
-            </AddProfileDialog>
+              <AddProfileDialog onAdd={handleAddProfile}>
+                <Button className="bg-gradient-primary hover:opacity-90 transition-opacity">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Perfil
+                </Button>
+              </AddProfileDialog>
+            </div>
           </div>
         </div>
       </header>
