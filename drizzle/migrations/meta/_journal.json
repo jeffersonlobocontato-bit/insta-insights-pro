@@ -15,6 +15,13 @@
       "when": 1788881996890,
       "tag": "0001_instagram_creatives_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788882189031,
+      "tag": "0002_restrict_security_definer_execute",
+      "breakpoints": true
     }
   ]
 }
