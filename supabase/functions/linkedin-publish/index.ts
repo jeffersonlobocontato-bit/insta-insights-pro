@@ -123,9 +123,9 @@ async function publishWithImagesApi(author: string, text: string, images: Uint8A
 
 
 /** Fluxo antigo: /v2/assets + /v2/ugcPosts. */
-async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array | null) {
-  let mediaAsset: string | null = null
-  if (bytes) {
+async function publishWithUgcApi(author: string, text: string, images: Uint8Array[]) {
+  const assets: string[] = []
+  for (const bytes of images) {
     const reg = await (
       await gateway('/v2/assets?action=registerUpload', {
         method: 'POST',
@@ -145,7 +145,7 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
     ]?.uploadUrl as string | undefined
     if (!asset || !uploadUrl) throw new Error('LinkedIn não devolveu URL de upload da imagem (v2/assets)')
     await putBinary(uploadUrl, bytes)
-    mediaAsset = asset
+    assets.push(asset)
   }
 
   const post = await (
@@ -158,8 +158,8 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
         specificContent: {
           'com.linkedin.ugc.ShareContent': {
             shareCommentary: { text },
-            shareMediaCategory: mediaAsset ? 'IMAGE' : 'NONE',
-            ...(mediaAsset ? { media: [{ status: 'READY', media: mediaAsset }] } : {}),
+            shareMediaCategory: assets.length ? 'IMAGE' : 'NONE',
+            ...(assets.length ? { media: assets.map((a) => ({ status: 'READY', media: a })) } : {}),
           },
         },
         visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
@@ -168,6 +168,7 @@ async function publishWithUgcApi(author: string, text: string, bytes: Uint8Array
   ).json()
   return post?.id ?? null
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
