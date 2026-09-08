@@ -52,10 +52,17 @@ export default {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-card': 'var(--gradient-card)',
         'gradient-overlay': 'var(--gradient-overlay)',
+        'gradient-rule': 'var(--gradient-rule)',
+      },
+      fontFamily: {
+        serif: ['"Instrument Serif"', 'serif'],
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'monospace'],
       },
       boxShadow: {
         'glow': 'var(--shadow-glow)',
         'card': 'var(--shadow-card)',
+        'soft': 'var(--shadow-soft)',
       },
       transitionProperty: {
         'smooth': 'var(--transition-smooth)',

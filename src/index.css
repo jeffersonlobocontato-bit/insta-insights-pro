@@ -49,6 +49,16 @@ All colors MUST be HSL.
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Marca Jefferson Lobo */
+    --brand-petrol: 165 24% 9%;
+    --brand-surface: 168 19% 13%;
+    --brand-surface-2: 168 13% 16%;
+    --brand-amber: 32 68% 64%;
+    --brand-amber-dark: 32 70% 46%;
+    --brand-paper: 42 35% 92%;
+    --gradient-rule: linear-gradient(90deg, hsl(32 68% 64% / 0) 0%, hsl(32 68% 64% / 0.8) 35%, hsl(32 68% 64% / 0) 100%);
+    --shadow-soft: 0 18px 50px hsl(165 24% 4% / 0.45);
   }
 
   .dark {
