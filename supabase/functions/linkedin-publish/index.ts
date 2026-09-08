@@ -215,17 +215,13 @@ Deno.serve(async (req) => {
       } catch (e) {
         const status = (e as { status?: number }).status
         const msg = (e as Error).message
-        console.error('Fluxo /rest falhou:', msg)
-        if (status === 403 || status === 426 || status === 404 || status === 400) {
-          try {
-            postId = await publishWithUgcApi(author, text, bytes)
-            withImage = true
-          } catch (e2) {
-            imageError = (e2 as Error).message
-            console.error('Fluxo /v2 também falhou:', imageError)
-          }
-        } else {
-          imageError = msg
+        console.error('Fluxo /rest falhou:', msg, status ?? '')
+        try {
+          postId = await publishWithUgcApi(author, text, bytes)
+          withImage = true
+        } catch (e2) {
+          imageError = `${msg} | v2: ${(e2 as Error).message}`
+          console.error('Fluxo /v2 também falhou:', imageError)
         }
       }
     }
