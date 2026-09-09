@@ -1,6 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { textCostUsd, imageCostUsd, toBrl } from '../_shared/pricing.ts'
+import { embedTexts, toVectorLiteral, EMBEDDING_MODEL } from '../_shared/knowledge.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -420,6 +421,53 @@ Deno.serve(async (req) => {
       if (path) newsImages.push({ path, source_name: item.source, source_link: item.link })
     }
 
+    // 1c. Conhecimento da marca (RAG): regras duras sempre + trechos relevantes ao tema
+    const knowledgeBlocks: string[] = []
+    try {
+      const { data: hardRules } = await admin
+        .from('knowledge_documents')
+        .select('id, title, doc_type, preset_id')
+        .eq('active', true)
+        .eq('status', 'ready')
+        .in('doc_type', ['policies', 'guardrails'])
+      for (const doc of hardRules ?? []) {
+        if (ctx.preset.id && doc.preset_id && doc.preset_id !== ctx.preset.id) continue
+        const { data: parts } = await admin
+          .from('knowledge_chunks')
+          .select('content')
+          .eq('document_id', doc.id)
+          .order('chunk_index')
+          .limit(12)
+        const full = (parts ?? []).map((p) => p.content).join('\n')
+        if (full.trim()) knowledgeBlocks.push(`### ${doc.title} (${doc.doc_type})\n${full.slice(0, 6000)}`)
+      }
+
+      const startedAt = Date.now()
+      const [queryEmbedding] = await embedTexts([`${topic.topic_title}\n${topic.topic_summary}`])
+      const { data: matches } = await admin.rpc('match_knowledge_chunks', {
+        query_embedding: toVectorLiteral(queryEmbedding),
+        match_count: 8,
+        filter_doc_types: ['brand_manual', 'design_system', 'writing_manual', 'copy_semantic', 'copy_syntactic', 'copy_lexical'],
+        filter_preset: ctx.preset.id || null,
+      })
+      for (const m of (matches ?? []) as { title: string; doc_type: string; content: string }[]) {
+        knowledgeBlocks.push(`### ${m.title} (${m.doc_type})\n${m.content}`)
+      }
+      await logUsage(ctx, {
+        step: 'knowledge_retrieval',
+        model: EMBEDDING_MODEL,
+        input_tokens: Math.ceil((topic.topic_title.length + topic.topic_summary.length) / 4),
+        cost_usd: 0.0000002 * Math.ceil((topic.topic_title.length + topic.topic_summary.length) / 4),
+        duration_ms: Date.now() - startedAt,
+      })
+    } catch (e) {
+      console.error('knowledge retrieval falhou', (e as Error).message)
+    }
+
+    const knowledgeContext = knowledgeBlocks.length
+      ? `\n\nMATERIAL OFICIAL DA EMPRESA (siga rigorosamente; policies e guardrails são obrigatórios):\n${knowledgeBlocks.join('\n\n').slice(0, 20000)}`
+      : ''
+
     // 2. Geração dos criativos, dentro da identidade da marca
     const slideSchema = {
       type: 'object',
@@ -456,7 +504,8 @@ Deno.serve(async (req) => {
               'Você cria conteúdo de Instagram para a marca pessoal de Jefferson Lobo — head executivo de marketing, consultor em IA e palestrante. ' +
                 'Tom direto, autoral e profissional, em português do Brasil, sem emojis nos títulos. ' +
                 'A identidade visual é fundo petróleo (#12201E), texto papel (#F2EEE4) e destaque âmbar (#E29F65), com títulos em serifa e rótulos em monoespaçada caixa alta.') +
-            ' image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.',
+            ' image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.' +
+            knowledgeContext,
         },
         {
           role: 'user',

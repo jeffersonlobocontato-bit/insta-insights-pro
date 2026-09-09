@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, Sparkles, Save } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import KnowledgeLibrary from "@/components/KnowledgeLibrary";
 
 type Preset = {
   id: string;
@@ -160,6 +162,17 @@ const Agent = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl space-y-6">
+        <Tabs defaultValue="preset" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="preset">Preset</TabsTrigger>
+            <TabsTrigger value="library">Biblioteca</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="library">
+            <KnowledgeLibrary presetId={current?.id ?? null} />
+          </TabsContent>
+
+          <TabsContent value="preset" className="space-y-6">
         {presets.length > 1 && (
           <div className="flex flex-wrap gap-2">
             {presets.map((p) => (
@@ -280,6 +293,8 @@ const Agent = () => {
             </Card>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

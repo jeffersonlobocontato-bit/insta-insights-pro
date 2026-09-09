@@ -252,6 +252,106 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          embedding: string | null
+          id: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          document_id: string
+          embedding?: string | null
+          id?: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          active: boolean
+          bytes: number
+          char_count: number
+          created_at: string
+          created_by: string | null
+          doc_type: string
+          error_message: string | null
+          id: string
+          mime: string | null
+          preset_id: string | null
+          raw_text: string | null
+          source_type: string
+          status: string
+          storage_path: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          bytes?: number
+          char_count?: number
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          error_message?: string | null
+          id?: string
+          mime?: string | null
+          preset_id?: string | null
+          raw_text?: string | null
+          source_type?: string
+          status?: string
+          storage_path?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          bytes?: number
+          char_count?: number
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          error_message?: string | null
+          id?: string
+          mime?: string | null
+          preset_id?: string | null
+          raw_text?: string | null
+          source_type?: string
+          status?: string
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_documents_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "agent_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -308,6 +408,22 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_knowledge_chunks: {
+        Args: {
+          filter_doc_types?: string[]
+          filter_preset?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          doc_type: string
+          document_id: string
+          similarity: number
+          title: string
+        }[]
       }
     }
     Enums: {
