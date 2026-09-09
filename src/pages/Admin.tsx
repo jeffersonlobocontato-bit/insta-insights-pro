@@ -154,6 +154,12 @@ const Admin = () => {
                 <Images className="w-4 h-4 mr-2" /> Biblioteca
               </Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link to="/agente">Agente</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/custos">Custos</Link>
+            </Button>
             <Button onClick={generate} disabled={generating} className="bg-gradient-primary">
               {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Gerar do dia
