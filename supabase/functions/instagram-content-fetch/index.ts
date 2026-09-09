@@ -363,7 +363,10 @@ Deno.serve(async (req) => {
     if (headlines.length === 0) throw new Error('Nenhuma fonte retornou conteúdo hoje.')
 
     const topic = await chat(
+      ctx,
+      'tema',
       [
+
         {
           role: 'system',
           content:
