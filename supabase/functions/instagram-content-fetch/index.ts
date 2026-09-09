@@ -309,14 +309,30 @@ Deno.serve(async (req) => {
   if (denied) return denied
 
   let runId: string | null = null
+  const ctx: Ctx = { runId: null, preset: FALLBACK_PRESET, totals: { usd: 0, brl: 0, tokens: 0, images: 0 } }
   try {
+    let body: { preset_id?: string } = {}
+    try {
+      body = (await req.json()) ?? {}
+    } catch {
+      body = {}
+    }
+
+    const presetQuery = admin.from('agent_presets').select('*').limit(1)
+    const { data: presetRow } = body.preset_id
+      ? await presetQuery.eq('id', body.preset_id).maybeSingle()
+      : await presetQuery.eq('is_default', true).maybeSingle()
+    if (presetRow) ctx.preset = { ...FALLBACK_PRESET, ...(presetRow as Preset) }
+
     const { data: run, error: runErr } = await admin
       .from('instagram_runs')
-      .insert({ status: 'researching' })
+      .insert({ status: 'researching', preset_id: ctx.preset.id || null })
       .select()
       .single()
     if (runErr) throw runErr
     runId = run.id
+    ctx.runId = runId
+
 
     // 1. Pesquisa de tendências
     const { data: sources } = await admin
