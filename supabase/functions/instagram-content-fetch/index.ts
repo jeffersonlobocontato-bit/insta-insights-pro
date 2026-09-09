@@ -437,21 +437,33 @@ Deno.serve(async (req) => {
       required: ['order', 'kicker', 'headline', 'emphasis', 'body', 'image_prompt'],
     }
 
+    const formatSpec = ctx.preset.formats
+      .map((f) =>
+        f === 'carousel'
+          ? `um "carousel" (${ctx.preset.carousel_slides} slides)`
+          : `um "${f}" (1 slide)`,
+      )
+      .join(', ')
+
     const drafts = (await chat(
+      ctx,
+      'criativos',
       [
         {
           role: 'system',
           content:
-            'Você cria conteúdo de Instagram para a marca pessoal de Jefferson Lobo — head executivo de marketing, consultor em IA e palestrante. ' +
-            'Tom direto, autoral e profissional, em português do Brasil, sem emojis nos títulos. ' +
-            'A identidade visual é fundo petróleo (#12201E), texto papel (#F2EEE4) e destaque âmbar (#E29F65), com títulos em serifa e rótulos em monoespaçada caixa alta. ' +
-            'image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.',
+            (ctx.preset.instructions?.trim() ||
+              'Você cria conteúdo de Instagram para a marca pessoal de Jefferson Lobo — head executivo de marketing, consultor em IA e palestrante. ' +
+                'Tom direto, autoral e profissional, em português do Brasil, sem emojis nos títulos. ' +
+                'A identidade visual é fundo petróleo (#12201E), texto papel (#F2EEE4) e destaque âmbar (#E29F65), com títulos em serifa e rótulos em monoespaçada caixa alta.') +
+            ' image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.',
         },
         {
           role: 'user',
-          content: `Tema do dia: ${topic.topic_title}\nResumo: ${topic.topic_summary}\n\nCrie três criativos: um "card" (1 slide), um "carousel" (4 slides) e um "story" (1 slide). Inclua legenda e de 5 a 8 hashtags para cada.`,
+          content: `Tema do dia: ${topic.topic_title}\nResumo: ${topic.topic_summary}\n\nCrie os seguintes criativos: ${formatSpec}. Inclua legenda e de 5 a 8 hashtags para cada.`,
         },
       ],
+
       'gerar_criativos',
       {
         type: 'object',
