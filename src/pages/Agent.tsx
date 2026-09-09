@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, Sparkles, Save } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import KnowledgeLibrary from "@/components/KnowledgeLibrary";
 
 type Preset = {
   id: string;
