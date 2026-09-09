@@ -205,15 +205,17 @@ async function mirrorImage(url: string, path: string): Promise<string | null> {
   }
 }
 
-async function chat(messages: unknown[], schemaName: string, schema: unknown) {
-  const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+async function chat(ctx: Ctx, step: string, messages: unknown[], schemaName: string, schema: unknown) {
+  const model = ctx.preset.text_model
+  const started = Date.now()
+  const res = await fetch(endpoint(ctx.preset, '/chat/completions'), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${apiKey(ctx.preset)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-3.8-flash',
+      model,
       messages,
       tools: [{ type: 'function', function: { name: schemaName, parameters: schema } }],
       tool_choice: { type: 'function', function: { name: schemaName } },
@@ -221,33 +223,61 @@ async function chat(messages: unknown[], schemaName: string, schema: unknown) {
   })
   if (!res.ok) {
     const text = await res.text()
+    await logUsage(ctx, { step, model, cost_usd: 0, duration_ms: Date.now() - started, success: false })
     throw Object.assign(new Error(`AI ${res.status}: ${text}`), { status: res.status })
   }
   const json = await res.json()
+  const inputTokens = json?.usage?.prompt_tokens ?? 0
+  const outputTokens = json?.usage?.completion_tokens ?? 0
+  await logUsage(ctx, {
+    step,
+    model,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    cost_usd: textCostUsd(model, inputTokens, outputTokens),
+    duration_ms: Date.now() - started,
+  })
   const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments
   if (!args) throw new Error('AI returned no structured output')
   return JSON.parse(args)
 }
 
-async function generateImage(prompt: string): Promise<string | null> {
-  const res = await fetch('https://ai.gateway.lovable.dev/v1/images/generations', {
+async function generateImage(ctx: Ctx, prompt: string): Promise<string | null> {
+  const model = ctx.preset.image_model
+  const started = Date.now()
+  const useOpenAI = ctx.preset.provider === 'openai' && OPENAI_API_KEY
+  const body = useOpenAI
+    ? { model, prompt, size: '1024x1024', n: 1 }
+    : { model, messages: [{ role: 'user', content: prompt }], modalities: ['image', 'text'] }
+  const res = await fetch(endpoint(ctx.preset, '/images/generations'), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${apiKey(ctx.preset)}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'google/gemini-3.1-flash-image',
-      messages: [{ role: 'user', content: prompt }],
-      modalities: ['image', 'text'],
-    }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const text = await res.text()
+    await logUsage(ctx, {
+      step: 'imagem',
+      model,
+      cost_usd: 0,
+      duration_ms: Date.now() - started,
+      success: false,
+    })
     throw Object.assign(new Error(`Image ${res.status}: ${text}`), { status: res.status })
   }
   const json = await res.json()
+  await logUsage(ctx, {
+    step: 'imagem',
+    model,
+    images: 1,
+    cost_usd: imageCostUsd(model, 1),
+    duration_ms: Date.now() - started,
+  })
   return json?.data?.[0]?.b64_json ?? null
+
 }
 
 async function uploadImage(b64: string, path: string) {
