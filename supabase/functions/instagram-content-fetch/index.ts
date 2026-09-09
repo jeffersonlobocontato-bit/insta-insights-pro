@@ -503,7 +503,8 @@ Deno.serve(async (req) => {
               'Você cria conteúdo de Instagram para a marca pessoal de Jefferson Lobo — head executivo de marketing, consultor em IA e palestrante. ' +
                 'Tom direto, autoral e profissional, em português do Brasil, sem emojis nos títulos. ' +
                 'A identidade visual é fundo petróleo (#12201E), texto papel (#F2EEE4) e destaque âmbar (#E29F65), com títulos em serifa e rótulos em monoespaçada caixa alta.') +
-            ' image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.',
+            ' image_prompt deve ser escrito em inglês, descrevendo um fundo abstrato e sofisticado nessa paleta, SEM nenhum texto na imagem.' +
+            knowledgeContext,
         },
         {
           role: 'user',
