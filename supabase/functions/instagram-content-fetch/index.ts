@@ -1,12 +1,91 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { textCostUsd, imageCostUsd, toBrl } from '../_shared/pricing.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const CRON_SECRET = Deno.env.get('LOVABLE_CRON_SECRET')
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY)
+
+type Preset = {
+  id: string
+  name: string
+  instructions: string
+  provider: string
+  text_model: string
+  image_model: string
+  formats: string[]
+  carousel_slides: number
+  image_budget: number
+}
+
+const FALLBACK_PRESET: Preset = {
+  id: '',
+  name: 'Padrão',
+  instructions: '',
+  provider: 'lovable',
+  text_model: 'google/gemini-3.8-flash',
+  image_model: 'google/gemini-3.1-flash-image',
+  formats: ['card', 'carousel', 'story'],
+  carousel_slides: 4,
+  image_budget: 6,
+}
+
+type Ctx = {
+  runId: string | null
+  preset: Preset
+  totals: { usd: number; brl: number; tokens: number; images: number }
+}
+
+function endpoint(preset: Preset, path: string) {
+  const useOpenAI = preset.provider === 'openai' && OPENAI_API_KEY
+  return useOpenAI ? `https://api.openai.com/v1${path}` : `https://ai.gateway.lovable.dev/v1${path}`
+}
+
+function apiKey(preset: Preset) {
+  return preset.provider === 'openai' && OPENAI_API_KEY ? OPENAI_API_KEY : LOVABLE_API_KEY
+}
+
+async function logUsage(
+  ctx: Ctx,
+  entry: {
+    step: string
+    model: string
+    input_tokens?: number
+    output_tokens?: number
+    images?: number
+    cost_usd: number
+    duration_ms: number
+    success?: boolean
+  },
+) {
+  const cost_brl = toBrl(entry.cost_usd)
+  ctx.totals.usd += entry.cost_usd
+  ctx.totals.brl += cost_brl
+  ctx.totals.tokens += (entry.input_tokens ?? 0) + (entry.output_tokens ?? 0)
+  ctx.totals.images += entry.images ?? 0
+  try {
+    await admin.from('ai_usage_events').insert({
+      run_id: ctx.runId,
+      step: entry.step,
+      provider: ctx.preset.provider === 'openai' && OPENAI_API_KEY ? 'openai' : 'lovable',
+      model: entry.model,
+      input_tokens: entry.input_tokens ?? 0,
+      output_tokens: entry.output_tokens ?? 0,
+      images: entry.images ?? 0,
+      cost_usd: Number(entry.cost_usd.toFixed(6)),
+      cost_brl: Number(cost_brl.toFixed(4)),
+      duration_ms: entry.duration_ms,
+      success: entry.success ?? true,
+    })
+  } catch {
+    // registro de custo nunca derruba a rodada
+  }
+}
+
 
 type Slide = {
   order: number
