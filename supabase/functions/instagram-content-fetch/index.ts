@@ -487,7 +487,7 @@ Deno.serve(async (req) => {
     )) as { creatives: CreativeDraft[] }
 
     // 3. Fundo de cada slide: primeiro a imagem pública da notícia, senão fundo por IA
-    let imageBudget = 6
+    let imageBudget = ctx.preset.image_budget ?? 6
     let newsCursor = 0
     for (const creative of drafts.creatives) {
       for (const slide of creative.slides) {
@@ -503,6 +503,7 @@ Deno.serve(async (req) => {
         imageBudget--
         try {
           const b64 = await generateImage(
+            ctx,
             `${slide.image_prompt}. Abstract editorial background for social media, deep petrol green (#12201E) base with warm amber (#E29F65) light accents, soft grain, high contrast, no text, no letters, no watermark.`,
           )
           if (b64) {
@@ -528,19 +529,43 @@ Deno.serve(async (req) => {
       })
     }
 
-    await admin.from('instagram_runs').update({ status: 'pending_review' }).eq('id', runId)
+    await admin
+      .from('instagram_runs')
+      .update({
+        status: 'pending_review',
+        cost_usd: Number(ctx.totals.usd.toFixed(6)),
+        cost_brl: Number(ctx.totals.brl.toFixed(4)),
+        tokens_total: ctx.totals.tokens,
+        image_count: ctx.totals.images,
+      })
+      .eq('id', runId)
 
-    return new Response(JSON.stringify({ run_id: runId, topic: topic.topic_title, news_images: newsImages.length }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({
+        run_id: runId,
+        topic: topic.topic_title,
+        news_images: newsImages.length,
+        cost_usd: Number(ctx.totals.usd.toFixed(6)),
+        cost_brl: Number(ctx.totals.brl.toFixed(4)),
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
   } catch (e) {
     const message = (e as Error).message ?? 'Erro desconhecido'
     if (runId) {
       await admin
         .from('instagram_runs')
-        .update({ status: 'failed', error_message: message.slice(0, 500) })
+        .update({
+          status: 'failed',
+          error_message: message.slice(0, 500),
+          cost_usd: Number(ctx.totals.usd.toFixed(6)),
+          cost_brl: Number(ctx.totals.brl.toFixed(4)),
+          tokens_total: ctx.totals.tokens,
+          image_count: ctx.totals.images,
+        })
         .eq('id', runId)
     }
+
     const status = (e as { status?: number }).status
     return new Response(JSON.stringify({ error: message }), {
       status: status && status >= 400 ? status : 500,
