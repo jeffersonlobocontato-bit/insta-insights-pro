@@ -14,6 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_presets: {
+        Row: {
+          carousel_slides: number
+          created_at: string
+          created_by: string | null
+          formats: string[]
+          id: string
+          image_budget: number
+          image_model: string
+          instructions: string
+          is_default: boolean
+          name: string
+          provider: string
+          text_model: string
+          updated_at: string
+        }
+        Insert: {
+          carousel_slides?: number
+          created_at?: string
+          created_by?: string | null
+          formats?: string[]
+          id?: string
+          image_budget?: number
+          image_model?: string
+          instructions?: string
+          is_default?: boolean
+          name: string
+          provider?: string
+          text_model?: string
+          updated_at?: string
+        }
+        Update: {
+          carousel_slides?: number
+          created_at?: string
+          created_by?: string | null
+          formats?: string[]
+          id?: string
+          image_budget?: number
+          image_model?: string
+          instructions?: string
+          is_default?: boolean
+          name?: string
+          provider?: string
+          text_model?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_usage_events: {
+        Row: {
+          cost_brl: number
+          cost_usd: number
+          created_at: string
+          duration_ms: number
+          id: string
+          images: number
+          input_tokens: number
+          model: string
+          output_tokens: number
+          provider: string
+          run_id: string | null
+          step: string
+          success: boolean
+        }
+        Insert: {
+          cost_brl?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          images?: number
+          input_tokens?: number
+          model: string
+          output_tokens?: number
+          provider?: string
+          run_id?: string | null
+          step: string
+          success?: boolean
+        }
+        Update: {
+          cost_brl?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          images?: number
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          provider?: string
+          run_id?: string | null
+          step?: string
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instagram_creatives: {
         Row: {
           caption: string | null
@@ -69,33 +173,48 @@ export type Database = {
       }
       instagram_runs: {
         Row: {
+          cost_brl: number
+          cost_usd: number
           created_at: string
           error_message: string | null
           id: string
+          image_count: number
+          preset_id: string | null
           run_date: string
           status: string
+          tokens_total: number
           topic_sources: Json
           topic_summary: string | null
           topic_title: string | null
           updated_at: string
         }
         Insert: {
+          cost_brl?: number
+          cost_usd?: number
           created_at?: string
           error_message?: string | null
           id?: string
+          image_count?: number
+          preset_id?: string | null
           run_date?: string
           status?: string
+          tokens_total?: number
           topic_sources?: Json
           topic_summary?: string | null
           topic_title?: string | null
           updated_at?: string
         }
         Update: {
+          cost_brl?: number
+          cost_usd?: number
           created_at?: string
           error_message?: string | null
           id?: string
+          image_count?: number
+          preset_id?: string | null
           run_date?: string
           status?: string
+          tokens_total?: number
           topic_sources?: Json
           topic_summary?: string | null
           topic_title?: string | null

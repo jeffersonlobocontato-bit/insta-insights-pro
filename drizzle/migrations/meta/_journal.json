@@ -22,6 +22,13 @@
       "when": 1788882189031,
       "tag": "0002_restrict_security_definer_execute",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788964453869,
+      "tag": "0003_ai_usage_and_agent_presets",
+      "breakpoints": true
     }
   ]
 }
