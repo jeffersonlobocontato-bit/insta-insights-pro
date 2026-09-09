@@ -29,6 +29,13 @@
       "when": 1788964453869,
       "tag": "0003_ai_usage_and_agent_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788967182488,
+      "tag": "0004_knowledge_library_rag",
+      "breakpoints": true
     }
   ]
 }
