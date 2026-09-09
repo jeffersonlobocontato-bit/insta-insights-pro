@@ -98,6 +98,16 @@ const Auth = () => {
               {loading ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
+          {mode === "signin" && (
+            <button
+              type="button"
+              disabled={loading}
+              className="mt-4 w-full text-sm text-primary hover:underline"
+              onClick={forgot}
+            >
+              Esqueci minha senha
+            </button>
+          )}
           <button
             type="button"
             className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground"
