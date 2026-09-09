@@ -25,6 +25,25 @@ const Auth = () => {
     return () => data.subscription.unsubscribe();
   }, [navigate]);
 
+  const forgot = async () => {
+    if (!email) {
+      toast.error("Digite seu e-mail acima primeiro.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Enviamos um link de redefinição para o seu e-mail.");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
