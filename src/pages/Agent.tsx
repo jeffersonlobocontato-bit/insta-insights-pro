@@ -293,6 +293,8 @@ const Agent = () => {
             </Card>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
