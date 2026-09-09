@@ -426,7 +426,7 @@ Deno.serve(async (req) => {
     try {
       const { data: hardRules } = await admin
         .from('knowledge_documents')
-        .select('title, doc_type, raw_text, id')
+        .select('id, title, doc_type, preset_id')
         .eq('active', true)
         .eq('status', 'ready')
         .in('doc_type', ['policies', 'guardrails'])
