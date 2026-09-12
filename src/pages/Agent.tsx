@@ -205,6 +205,32 @@ const Agent = () => {
           <>
             <Card>
               <CardHeader>
+                <CardTitle className="text-base">Criar a partir de um link</CardTitle>
+                <CardDescription>
+                  Cole o endereço de uma notícia ou página e o agente cria os criativos sobre ela, no lugar do tema do dia.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  placeholder="https://site.com/materia"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      runFromLink();
+                    }
+                  }}
+                />
+                <Button onClick={runFromLink} disabled={running || !linkUrl.trim()} className="sm:w-auto">
+                  {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Criar post
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="text-base">Como o agente deve escrever</CardTitle>
                 <CardDescription>Tom de voz, temas preferidos, o que evitar.</CardDescription>
               </CardHeader>
