@@ -348,11 +348,19 @@ Deno.serve(async (req) => {
   let runId: string | null = null
   const ctx: Ctx = { runId: null, preset: FALLBACK_PRESET, totals: { usd: 0, brl: 0, tokens: 0, images: 0 } }
   try {
-    let body: { preset_id?: string } = {}
+    let body: { preset_id?: string; source_url?: string } = {}
     try {
       body = (await req.json()) ?? {}
     } catch {
       body = {}
+    }
+
+    const sourceUrl = typeof body.source_url === 'string' ? body.source_url.trim() : ''
+    if (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl)) {
+      return new Response(JSON.stringify({ error: 'Link inválido. Cole o endereço completo da página.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const presetQuery = admin.from('agent_presets').select('*').limit(1)
@@ -371,29 +379,41 @@ Deno.serve(async (req) => {
     ctx.runId = runId
 
 
-    // 1. Pesquisa de tendências
-    const { data: sources } = await admin
-      .from('instagram_trend_sources')
-      .select('*')
-      .eq('active', true)
-      .limit(8)
-
+    // 1. Pesquisa de tendências (ou link colado manualmente)
     const headlines: Headline[] = []
-    for (const s of sources ?? []) {
+
+    if (sourceUrl) {
+      const article = await fetchArticle(sourceUrl)
+      let host = sourceUrl
       try {
-        const res = await fetch(s.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' } })
-        const xml = await res.text()
-        const items = parseFeed(xml, 6)
-        headlines.push(...items.map((i) => ({ source: s.name, ...i })))
-        await admin
-          .from('instagram_trend_sources')
-          .update({ last_fetch_status: `ok (${items.length})`, last_fetch_at: new Date().toISOString() })
-          .eq('id', s.id)
-      } catch (e) {
-        await admin
-          .from('instagram_trend_sources')
-          .update({ last_fetch_status: `erro: ${(e as Error).message}`.slice(0, 200), last_fetch_at: new Date().toISOString() })
-          .eq('id', s.id)
+        host = new URL(sourceUrl).hostname.replace(/^www\./, '')
+      } catch {
+        // mantém a url
+      }
+      headlines.push({ source: host, ...article })
+    } else {
+      const { data: sources } = await admin
+        .from('instagram_trend_sources')
+        .select('*')
+        .eq('active', true)
+        .limit(8)
+
+      for (const s of sources ?? []) {
+        try {
+          const res = await fetch(s.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' } })
+          const xml = await res.text()
+          const items = parseFeed(xml, 6)
+          headlines.push(...items.map((i) => ({ source: s.name, ...i })))
+          await admin
+            .from('instagram_trend_sources')
+            .update({ last_fetch_status: `ok (${items.length})`, last_fetch_at: new Date().toISOString() })
+            .eq('id', s.id)
+        } catch (e) {
+          await admin
+            .from('instagram_trend_sources')
+            .update({ last_fetch_status: `erro: ${(e as Error).message}`.slice(0, 200), last_fetch_at: new Date().toISOString() })
+            .eq('id', s.id)
+        }
       }
     }
 
@@ -411,9 +431,11 @@ Deno.serve(async (req) => {
         },
         {
           role: 'user',
-          content:
-            'Com base nestas manchetes de hoje, escolha O tema mais comentado e relevante para um público de marketing e IA no Instagram.\n\n' +
-            headlines.map((h, i) => `${i}. [${h.source}] ${h.title}: ${h.summary}`).join('\n'),
+          content: sourceUrl
+            ? 'Use EXCLUSIVAMENTE esta matéria enviada pelo usuário como tema do post. Resuma com precisão o que ela diz, sem inventar fatos. Em headline_indexes responda [0].\n\n' +
+              headlines.map((h, i) => `${i}. [${h.source}] ${h.title}: ${h.summary}`).join('\n')
+            : 'Com base nestas manchetes de hoje, escolha O tema mais comentado e relevante para um público de marketing e IA no Instagram.\n\n' +
+              headlines.map((h, i) => `${i}. [${h.source}] ${h.title}: ${h.summary}`).join('\n'),
         },
       ],
       'escolher_tema',
