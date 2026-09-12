@@ -102,19 +102,30 @@ const Agent = () => {
     }
   };
 
-  const run = async () => {
+  const run = async (sourceUrl?: string) => {
     if (!current) return;
     setRunning(true);
     const { data, error } = await supabase.functions.invoke("instagram-content-fetch", {
-      body: { preset_id: current.id },
+      body: { preset_id: current.id, ...(sourceUrl ? { source_url: sourceUrl } : {}) },
     });
     setRunning(false);
     if (error) toast.error("Falhou: " + error.message);
     else {
       const cost = (data as { cost_brl?: number })?.cost_brl ?? 0;
       toast.success(`Criativos gerados. Custo estimado: R$ ${cost.toFixed(2)}`);
+      if (sourceUrl) setLinkUrl("");
     }
   };
+
+  const runFromLink = () => {
+    const url = linkUrl.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      toast.error("Cole o endereço completo da página, começando com https://");
+      return;
+    }
+    run(url);
+  };
+
 
   if (!ready) {
     return (
