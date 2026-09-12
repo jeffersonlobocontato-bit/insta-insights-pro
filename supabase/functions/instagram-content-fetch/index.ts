@@ -184,6 +184,42 @@ async function fetchOgImage(url: string): Promise<string | undefined> {
   }
 }
 
+/** Lê uma página de notícia colada manualmente: título, texto e imagem pública. */
+async function fetchArticle(url: string): Promise<{ title: string; summary: string; link: string; image?: string }> {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ContentBot/1.0)' },
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!res.ok) throw new Error(`Não consegui abrir o link (HTTP ${res.status}).`)
+  const html = (await res.text()).slice(0, 400000)
+
+  const meta = (re: RegExp) => html.match(re)?.[1]
+  const title =
+    meta(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ??
+    meta(/<title[^>]*>([\s\S]*?)<\/title>/i) ??
+    url
+  const description =
+    meta(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) ??
+    meta(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i) ??
+    ''
+  const image =
+    meta(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
+    meta(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+
+  const bodyHtml = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  const text = decodeEntities(stripTags(bodyHtml)).replace(/\s+/g, ' ').slice(0, 6000)
+
+  return {
+    title: decodeEntities(stripTags(title)).slice(0, 300),
+    summary: (decodeEntities(description) + ' ' + text).trim().slice(0, 6000),
+    link: url,
+    image: image && /^https?:\/\//i.test(image) ? decodeEntities(image) : undefined,
+  }
+}
+
+
 /** Baixa a imagem pública da notícia e regrava no bucket (evita hotlink/CORS). */
 async function mirrorImage(url: string, path: string): Promise<string | null> {
   try {
