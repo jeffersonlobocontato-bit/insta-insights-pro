@@ -39,6 +39,7 @@ const Agent = () => {
   const [current, setCurrent] = useState<Preset | null>(null);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("agent_presets").select("*").order("created_at");
@@ -102,19 +103,30 @@ const Agent = () => {
     }
   };
 
-  const run = async () => {
+  const run = async (sourceUrl?: string) => {
     if (!current) return;
     setRunning(true);
     const { data, error } = await supabase.functions.invoke("instagram-content-fetch", {
-      body: { preset_id: current.id },
+      body: { preset_id: current.id, ...(sourceUrl ? { source_url: sourceUrl } : {}) },
     });
     setRunning(false);
     if (error) toast.error("Falhou: " + error.message);
     else {
       const cost = (data as { cost_brl?: number })?.cost_brl ?? 0;
       toast.success(`Criativos gerados. Custo estimado: R$ ${cost.toFixed(2)}`);
+      if (sourceUrl) setLinkUrl("");
     }
   };
+
+  const runFromLink = () => {
+    const url = linkUrl.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      toast.error("Cole o endereço completo da página, começando com https://");
+      return;
+    }
+    run(url);
+  };
+
 
   if (!ready) {
     return (
@@ -153,7 +165,7 @@ const Agent = () => {
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
             </Button>
-            <Button size="sm" onClick={run} disabled={running || !current}>
+            <Button size="sm" onClick={() => run()} disabled={running || !current}>
               {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Gerar agora
             </Button>
@@ -191,6 +203,32 @@ const Agent = () => {
 
         {current && (
           <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Criar a partir de um link</CardTitle>
+                <CardDescription>
+                  Cole o endereço de uma notícia ou página e o agente cria os criativos sobre ela, no lugar do tema do dia.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  placeholder="https://site.com/materia"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      runFromLink();
+                    }
+                  }}
+                />
+                <Button onClick={runFromLink} disabled={running || !linkUrl.trim()} className="sm:w-auto">
+                  {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Criar post
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Como o agente deve escrever</CardTitle>
