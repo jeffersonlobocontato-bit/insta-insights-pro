@@ -39,6 +39,7 @@ const Agent = () => {
   const [current, setCurrent] = useState<Preset | null>(null);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("agent_presets").select("*").order("created_at");
