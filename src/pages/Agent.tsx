@@ -165,7 +165,7 @@ const Agent = () => {
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
             </Button>
-            <Button size="sm" onClick={run} disabled={running || !current}>
+            <Button size="sm" onClick={() => run()} disabled={running || !current}>
               {running ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Gerar agora
             </Button>
