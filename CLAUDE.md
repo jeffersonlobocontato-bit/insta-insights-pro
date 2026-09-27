@@ -22,7 +22,7 @@ Vite + React + TS + shadcn/ui + Tailwind + Supabase (Postgres/Auth/Storage/Edge 
 - **`linkedin-publish`** — publica um creative aprovado no LinkedIn via `connector-gateway.lovable.dev/linkedin`, com cadeia de fallback (API moderna → legada → só texto) — **frágil**, vários endpoints/versões hardcoded
 - **`knowledge-ingest`** — processa PDF/DOCX/texto enviado em chunks, gera embedding (Gemini), salva em `knowledge_chunks`
 - **`knowledge-search`** — embedda a busca, chama RPC `match_knowledge_chunks`
-- `_shared/pricing.ts` — tabela de preço por modelo hardcoded (USD→BRL); `_shared/cron-auth.ts` existe mas é **código morto**, `instagram-content-fetch` faz sua própria checagem de `CRON_SECRET` inline
+- `_shared/pricing.ts` — tabela de preço por modelo hardcoded (USD→BRL); `instagram-content-fetch` faz sua própria checagem de `CRON_SECRET` inline (removemos `_shared/cron-auth.ts`, que era código morto duplicando essa checagem)
 
 ## Páginas
 - **`Index.tsx` (`/`) é sobra do scaffold do Lovable** — UI de "adicionar perfil do Instagram" com dado mockado (`Math.random()`), nunca chama o Supabase. Não confundir com a entrada real do produto.
